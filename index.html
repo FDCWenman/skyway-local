@@ -1,138 +1,29 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8" />
-  <title>SkyWay Room SFU Test — safe attach pattern</title>
-  <style>
-    #remoteVideos video {
-      width: 240px;
-      height: 180px;
-      border: 2px solid #333;
-      background: #000;
-      display: block;
-      margin-bottom: 8px;
-    }
-    #remoteVideos { margin-top: 16px; }
-  </style>
-</head>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>SkyWay Tutorial</title>
+    <style>
+      #button-area {
 
-<body>
-  <h2>SkyWay SFU Call (Latest SDK)</h2>
-  <input id="roomName" placeholder="Room name" />
-  <button id="joinBtn">Join Room</button>
-  <br><br>
-  <div id="remoteVideos"></div>
-  <div id="httpsWarning" style="color:red;font-weight:bold;margin-top:12px;"></div>
-
-  <!-- SkyWay SDK (room bundle) -->
-  <script src="https://cdn.jsdelivr.net/npm/@skyway-sdk/room/dist/skyway_room-latest.js"></script>
-
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      // Warn when not on HTTPS / localhost
-      if (
-        location.protocol !== 'https:' &&
-        location.hostname !== 'localhost' &&
-        location.hostname !== '127.0.0.1'
-      ) {
-        document.getElementById('httpsWarning').textContent =
-          'Camera/microphone access will be blocked unless you use localhost or HTTPS!';
+        display:flex;
+        
       }
-
-      const { SkyWayContext, SkyWayRoom, SkyWayStreamFactory } = skyway_room;
-
-      /** Helper: attach a SkyWay VideoTrack to a brand‑new <video> element */
-      const attachVideo = (videoTrack, { muted = false } = {}) => {
-        const videoElem = document.createElement('video');
-        videoElem.autoplay = true;
-        videoElem.playsInline = true;
-        videoElem.muted = muted;                // mute local video to avoid echo
-        videoElem.style =
-          'width:240px;margin:4px;border:2px solid #333;background:#000;';
-
-        // The attach() call wires MediaStreamTrack → <video>
-        videoTrack.attach(videoElem);
-
-        document.getElementById('remoteVideos').appendChild(videoElem);
-      };
-
-      document.getElementById('joinBtn').onclick = async () => {
-        /* ---------- 0. Token & room name ---------- */
-        const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NDk0Mzk0NzQsImp0aSI6ImI5OGE1OTEwLTE1OWUtNDk3MC04OTFlLTUzOThmZjdmYzY5NCIsImV4cCI6MTc0OTUyNTg3NCwic2NvcGUiOnsiYXBwIjp7ImlkIjoiNjNiZGI5MDEtNzQyOC00M2ZiLTk5YjEtZDE4MWIwYzY0MzEwIiwidHVybiI6dHJ1ZSwiYWN0aW9ucyI6WyJyZWFkIl0sImNoYW5uZWxzIjpbeyJpZCI6IioiLCJuYW1lIjoiKiIsImFjdGlvbnMiOlsid3JpdGUiXSwibWVtYmVycyI6W3siaWQiOiIqIiwibmFtZSI6IioiLCJhY3Rpb25zIjpbIndyaXRlIl0sInB1YmxpY2F0aW9uIjp7ImFjdGlvbnMiOlsid3JpdGUiXX0sInN1YnNjcmlwdGlvbiI6eyJhY3Rpb25zIjpbIndyaXRlIl19fV0sInNmdUJvdHMiOlt7ImFjdGlvbnMiOlsid3JpdGUiXSwiZm9yd2FyZGluZ3MiOlt7ImFjdGlvbnMiOlsid3JpdGUiXX1dfV19XX19fQ.ubex8r2XKowt5iSDJFozmUoGaT3pHbgzWgNuNVuaTlk';           // ← PUT YOUR TOKEN
-        const roomName = document.getElementById('roomName').value.trim();
-        if (!roomName) { alert('Enter a room name'); return; }
-
-        /* ---------- 1. SkyWay context ---------- */
-        let context;
-        try {
-          context = await SkyWayContext.Create(token);
-        } catch (err) {
-          console.error('SkyWayContext.Create failed:', err);
-          alert('Invalid or expired token');
-          return;
-        }
-
-        /* ---------- 2. Find or create the SFU room ---------- */
-        const room = await SkyWayRoom.FindOrCreate(context, {
-          name: roomName,
-          type: 'sfu'
-        });
-
-        /* ---------- 3. Get local camera+mic ---------- */
-        let localStream;
-        try {
-          localStream = await SkyWayStreamFactory
-            .createMicrophoneAudioAndCameraStream();
-          if (!localStream.video) {
-            alert('Could not access camera; localStream.video is undefined.');
-            return;
-          }
-        } catch (err) {
-          alert('Could not access camera/microphone.\n' + (err?.message || err));
-          return;
-        }
-
-        /* ---------- 4. Join the room ---------- */
-        const me = await room.join({
-          name: 'user_' + Math.floor(Math.random() * 1000),
-          stream: localStream
-        });
-
-        /* ---------- 5. Render local video ---------- */
-        attachVideo(localStream.video, { muted: true });
-
-        /* ---------- 6. Handle EXISTING remote publications ---------- */
-        room.publications.forEach(async pub => {
-          if (pub.publisher.id === me.id) return;        // skip our own
-          if (pub.contentType !== 'video') return;      // only video
-
-          try {
-            const sub = await me.subscribe(pub.id);
-            if (sub.stream.video) {
-              attachVideo(sub.stream.video);
-            } else {
-              console.warn('Subscribed stream has no video track:', sub.stream);
-            }
-          } catch (err) {
-            console.error('Failed subscribing to an existing publication:', err);
-          }
-        });
-
-        /* ---------- 7. Handle FUTURE remote publications ---------- */
-        room.onStreamPublished.add(evt => {
-          const { publication, publisher } = evt;
-          if (publisher.id === me.id) return;
-          if (publication.contentType !== 'video') return;
-
-          me.subscribe(publication.id)
-            .then(sub => {
-              if (sub.stream.video) attachVideo(sub.stream.video);
-              else console.warn('Subscribed stream has no video:', sub.stream);
-            })
-            .catch(err => console.error('Subscribe error:', err));
-        });
-      };
-    });
-  </script>
-</body>
+    </style>
+    
+  </head>
+  <body>
+    <p>ID: <span id="my-id"></span></p>
+    <div>
+      room name: <input id="room-name" type="text" />
+      <button id="join">join</button>
+      <button id="leave">leave</button>
+    </div>
+    <video id="local-video" width="400px" muted playsinline></video>
+    <div id="button-area"></div>
+    <div id="remote-media-area"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@skyway-sdk/room/dist/skyway_room-latest.js"></script>
+    <script src="main.js"></script>
+  </body>
 </html>

@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 
-const secret = ''; // your SkyWay secret
-const appId = ''; // your SkyWay App ID
+const secret = 'CTxzwgXj/i+1REyCNliqH0GJ83n0Z4IHCjqvEpD1rg0='; // your SkyWay secret
+const appId = '326bee5e-43dc-42e0-bf04-2e9d8be322e2'; // your SkyWay App ID
 
 // Function to generate UUID v4 (like PHP's generateUUID)
 function generateUUID() {
