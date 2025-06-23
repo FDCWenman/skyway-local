@@ -1,6 +1,6 @@
 const { nowInSec, SkyWayAuthToken, SkyWayContext, SkyWayRoom, SkyWayStreamFactory, uuidV4 } = skyway_room;
-const APP_ID = "";
-const SECRET_KEY = "";
+const APP_ID = "326bee5e-43dc-42e0-bf04-2e9d8be322e2";
+const SECRET_KEY = "7vU4AcgjILced6SK3ATwKzekeWLiSYpJwmb6AvNPVxw=";
 
 console.log(uuidV4());
 
